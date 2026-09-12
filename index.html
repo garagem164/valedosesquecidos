@@ -252,12 +252,43 @@ html,body{height:100%;overflow:hidden;font-family:system-ui,sans-serif;backgroun
 <script>
 "use strict";
 
-var TILE=32,MAP_W=49,MAP_H=49,PSPEED=140,PACCEL=12,CAM_LERP=6,PW=18,PH=20,GROW=15;
+// ========================
+// BALANCE — todos os numeros magicos num so lugar
+// ========================
+var BALANCE={
+  tile:32, mapW:49, mapH:49,
+  areaSize:7, gridCols:7, gridRows:7,
+  areaInicial:24,
+  saveKey:'fazendinha_v15',
+  playerSpeed:140, playerAccel:12, playerW:18, playerH:20,
+  camLerp:6,
+  zoomMin:0.6, zoomMax:2.5, zoomStep:1.2,
+  growSeconds:15,
+  tillExpirySeconds:300,
+  waterBoost:5,
+  respawnIntervalSeconds:300,
+  idleEssenceBase:0.03,
+  idleEssencePerArea:0.02,
+  animalProdIntervalSeconds:15,
+  recruitCooldownOnWalk:4,
+  recruitChanceOnWalk:0.04,
+  recruitCooldownOnAction:3,
+  maxFloatingTexts:30,
+  mergeRules:{
+    comum:{qtd:5, custo:100, destino:'incomum'},
+    incomum:{qtd:4, custo:500, destino:'raro'},
+    raro:{qtd:3, custo:2500, destino:'epico'}
+  }
+};
+
+var TILE=BALANCE.tile,MAP_W=BALANCE.mapW,MAP_H=BALANCE.mapH;
+var PSPEED=BALANCE.playerSpeed,PACCEL=BALANCE.playerAccel,CAM_LERP=BALANCE.camLerp;
+var PW=BALANCE.playerW,PH=BALANCE.playerH,GROW=BALANCE.growSeconds;
 var T={GRASS:0,TALL:1,WATER:2,TREE:3,SOIL:4,PLANTED:5,FENCE:6,PATH:7,HOUSE:8,ROCK:9,STUMP:10,BARN:11,EXPANSION:12};
-var SAVE_KEY='fazendinha_v15';
-var AREA_SIZE=7;
-var GRID_COLS=7;
-var GRID_ROWS=7;
+var SAVE_KEY=BALANCE.saveKey;
+var AREA_SIZE=BALANCE.areaSize;
+var GRID_COLS=BALANCE.gridCols;
+var GRID_ROWS=BALANCE.gridRows;
 
 var TOOLS={
   hand:{ic:'✋',nm:'Mao',r:'comum'},
@@ -350,7 +381,6 @@ var TAREFAS={
   "Mestre Geral":[{id:"tudo", ic:"✨", nm:"Harmonia Global"}]
 };
 
-// Geração procedural das 49 áreas (grid 7x7)
 var BIOMAS=[
   'tree','tree','rock','rock','holy','holy','holy',
   'tree','tall','rock','rock','holy','holy','holy',
@@ -460,9 +490,6 @@ var state={
 Object.keys(UPGRADES).forEach(function(k){state.upgrades[k]=0;});
 var BON={growth:0,seed_drop:0,wood_bonus:0,stone_bonus:0,water_speed:0,move_speed:0,crop_bonus:0,cook_speed:0,price_bonus:0,coin_bonus:0};
 
-// ========================
-// ÁREAS: helpers
-// ========================
 function areaAtTile(tx,ty){
   for(var i=0;i<AREAS.length;i++){
     var a=AREAS[i];
@@ -474,7 +501,6 @@ function areaAtPx(px,py){
   return areaAtTile(Math.floor(px/TILE), Math.floor(py/TILE));
 }
 function isAreaAdjacentToUnlocked(area){
-  // Checa 4 vizinhos no grid
   var dirs=[[0,-1],[0,1],[-1,0],[1,0]];
   for(var i=0;i<4;i++){
     var nc=area.col+dirs[i][0];
@@ -493,6 +519,9 @@ function showToast(msg,err){
   showToast._t=setTimeout(function(){t.className=''},2500);
 }
 function addFloatText(x,y,txt,color){
+  if(state.floatingTexts.length>=BALANCE.maxFloatingTexts){
+    state.floatingTexts.shift();
+  }
   state.floatingTexts.push({x:x,y:y,txt:txt,color:color||'#ffd166',life:1.2,maxLife:1.2});
 }
 function showLegendaryAlert(){
@@ -550,10 +579,10 @@ function drawRecruitOnMap(rec,sx,sy,sz,bo){
   var sg=ctx.createRadialGradient(0,22*s,2,0,22*s,18*s);
   sg.addColorStop(0,'rgba(0,0,0,0.35)');sg.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=sg;ctx.beginPath();ctx.ellipse(0,22*s,18*s,6*s,0,0,Math.PI*2);ctx.fill();
-  var r=RECRUTAS.find(function(x){return x.nome===rec.nome;});
+  var isMale = rec.genero==='M';
   var skin="#f5c9a0";
-  var shirt=r&&r.genero==='M'?"#4a7a3a":"#b85a9a";
-  var hair=r&&r.genero==='M'?"#3a2a1a":"#5a2a3a";
+  var shirt=isMale?"#4a7a3a":"#b85a9a";
+  var hair=isMale?"#3a2a1a":"#5a2a3a";
   ctx.fillStyle="#3a5a2a";ctx.fillRect(-5*s,12*s,4*s,8*s);ctx.fillRect(1*s,12*s,4*s,8*s);
   ctx.fillStyle=shirt;ctx.fillRect(-8*s,0,16*s,14*s);
   ctx.fillStyle=skin;ctx.beginPath();ctx.arc(0,-6*s,8*s,0,Math.PI*2);ctx.fill();
@@ -587,18 +616,15 @@ function genMap(){
     if(area.bioma==='rock')tipo=T.ROCK;
     if(area.bioma==='tree')tipo=T.TREE;
     if(area.bioma==='soil')tipo=T.SOIL;
-    // holy e inicial ficam GRASS puro
     for(var y=area.y;y<area.y+area.h;y++)for(var x=area.x;x<area.x+area.w;x++){
       if(m[y]&&m[y][x]!==undefined)m[y][x]=tipo;
     }
   }
-  // Aplica o solo inicial dentro da área inicial
   var startArea = AREAS.find(function(a){return a.unlocked;});
   if(startArea){
     for(var y=startArea.y+1;y<startArea.y+Math.min(4,startArea.h);y++)
       for(var x=startArea.x+1;x<startArea.x+Math.min(4,startArea.w);x++)
         if(m[y]&&m[y][x]!==undefined)m[y][x]=T.SOIL;
-    // Jogador no centro da área inicial
     state.player.x=(startArea.x + Math.floor(startArea.w/2))*TILE + TILE/2;
     state.player.y=(startArea.y + Math.floor(startArea.h/2))*TILE + TILE/2;
   }
@@ -684,7 +710,7 @@ function actOnTile(tx,ty){
   }
   if(tile===T.GRASS&&tool==='hoe'){
     state.map[ty][tx]=T.SOIL;p.acd=.4;
-    state.tillExpiry.push({tx:tx,ty:ty,until:state.time+300});
+    state.tillExpiry.push({tx:tx,ty:ty,until:state.time+BALANCE.tillExpirySeconds});
     return true;
   }
   if(tile===T.SOIL&&tool==='seed'){
@@ -700,18 +726,18 @@ function actOnTile(tx,ty){
   if(tile===T.PLANTED){
     var plant=null;
     for(var i=0;i<state.plants.length;i++)if(state.plants[i].tx===tx&&state.plants[i].ty===ty){plant=state.plants[i];break;}
-    if(tool==='watering'&&plant&&!plant.grown){plant.pa-=5*(1+BON.water_speed);p.acd=.3;return true;}
+    if(tool==='watering'&&plant&&!plant.grown){plant.pa-=BALANCE.waterBoost*(1+BON.water_speed);p.acd=.3;return true;}
     if(plant&&plant.grown){
       var cg=1;if(Math.random()<BON.crop_bonus)cg=2;
       state.crops+=cg;state.map[ty][tx]=T.SOIL;
       state.plants=state.plants.filter(function(pl){return pl!==plant;});
-      state.tillExpiry.push({tx:tx,ty:ty,until:state.time+300});
+      state.tillExpiry.push({tx:tx,ty:ty,until:state.time+BALANCE.tillExpirySeconds});
       addFloatText(tx*TILE+TILE/2,ty*TILE,'+'+cg+' 🥕','#ff9a5a');
       p.acd=.3;markHudDirty();return true;
     }else{showToast('Ainda crescendo...');return false;}
   }
   if(tile===T.TALL&&state.encCd<=0){
-    state.encCd=3;triggerRecruit();return true;
+    state.encCd=BALANCE.recruitCooldownOnAction;triggerRecruit();return true;
   }
   return false;
 }
@@ -766,7 +792,6 @@ function tryExpand(tx,ty){
   state.coins -= area.cost;
   area.unlocked = true;
   state.areasUnlocked++;
-  // Popula o terreno conforme o bioma
   var tipo=T.GRASS;
   if(area.bioma==='tall')tipo=T.TALL;
   if(area.bioma==='rock')tipo=T.ROCK;
@@ -775,7 +800,6 @@ function tryExpand(tx,ty){
   for(var y=area.y;y<area.y+area.h;y++)
     for(var x=area.x;x<area.x+area.w;x++)
       if(state.map[y]&&state.map[y][x]!==undefined)state.map[y][x]=tipo;
-  // Efeito visual e texto
   var cx=(area.x+area.w/2)*TILE;
   var cy=(area.y+area.h/2)*TILE;
   addFloatText(cx,cy,'🔓 '+area.nm+'!','#06d6a0');
@@ -840,7 +864,6 @@ function updJoy(t){
   state.input.jdx=dx/max;state.input.jdy=dy/max;
 }
 
-/* ==================== ZOOM ==================== */
 function setZoom(newZoom, anchorX, anchorY){
   var oldZoom = state.zoom;
   state.zoom = Math.max(state.minZoom, Math.min(state.maxZoom, newZoom));
@@ -1178,7 +1201,7 @@ function doWork(r){
         var g=1;if(Math.random()<BON.crop_bonus)g=2;
         state.crops+=g;state.map[ty][tx]=T.SOIL;
         state.plants=state.plants.filter(function(p){return p!==pl;});
-        state.tillExpiry.push({tx:tx,ty:ty,until:state.time+300});
+        state.tillExpiry.push({tx:tx,ty:ty,until:state.time+BALANCE.tillExpirySeconds});
         addFloatText(tx*TILE+TILE/2,ty*TILE-10,'+'+g+' 🥕','#ff9a5a');
         markHudDirty();return true;
       }
@@ -1274,7 +1297,7 @@ function updateRecruitsAI(dt){
   });
 }
 function runIdle(dt){
-  var baseEssence=0.03+(state.areasUnlocked-1)*0.02;
+  var baseEssence=BALANCE.idleEssenceBase+(state.areasUnlocked-1)*BALANCE.idleEssencePerArea;
   state.essence+=baseEssence*dt;
   Object.keys(UPGRADES).forEach(function(k){
     var u=UPGRADES[k];var lvl=state.upgrades[k]||0;
@@ -1282,7 +1305,7 @@ function runIdle(dt){
   });
   var gt=GROW/(1+BON.growth);
   state.plants.forEach(function(pl){if(!pl.grown&&state.time-pl.pa>gt)pl.grown=true;});
-  var pi=15/(1+BON.cook_speed);
+  var pi=BALANCE.animalProdIntervalSeconds/(1+BON.cook_speed);
   state.animals.forEach(function(a){
     if(state.time-a.lp>pi){
       a.lp=state.time;
@@ -1338,7 +1361,7 @@ function update(dt){
   var p=state.player;
   if(p.acd>0)p.acd-=dt;
   updateFloats(dt);
-  if(state.time>=state.nextResourceSpawn){state.nextResourceSpawn=state.time+300;respawnResources();}
+  if(state.time>=state.nextResourceSpawn){state.nextResourceSpawn=state.time+BALANCE.respawnIntervalSeconds;respawnResources();}
   expireTilledSoil();
   if(!state.cutsceneStartDone){
     state.startDelay-=dt;
@@ -1392,7 +1415,10 @@ function update(dt){
   state.encCd-=dt;
   var tu=tileAt(p.x,p.y);
   if(tu===T.TALL&&p.walking&&state.encCd<=0){
-    if(Math.random()<.04*dt*60){state.encCd=4;triggerRecruit();}
+    if(Math.random()<BALANCE.recruitChanceOnWalk*dt*60){
+      state.encCd=BALANCE.recruitCooldownOnWalk;
+      triggerRecruit();
+    }
   }
   var vw=canvas.width/state.zoom, vh=canvas.height/state.zoom;
   var tcx=p.x-vw/2, tcy=p.y-vh/2;
@@ -1549,7 +1575,6 @@ function drawTile(tx,ty,sx,sy){
   }
 }
 
-/* ============ DESENHO DAS ÁREAS BLOQUEADAS ============ */
 function drawLockedArea(area){
   var sx = area.x*TILE - state.cam.x;
   var sy = area.y*TILE - state.cam.y;
@@ -1559,7 +1584,6 @@ function drawLockedArea(area){
   var adj = isAreaAdjacentToUnlocked(area);
   var canPay = state.coins >= area.cost;
 
-  // Fundo base
   var grad = ctx.createLinearGradient(sx, sy, sx, sy+h);
   if(adj && canPay){
     grad.addColorStop(0,'#2a2410');
@@ -1574,7 +1598,6 @@ function drawLockedArea(area){
   ctx.fillStyle = grad;
   ctx.fillRect(sx, sy, w, h);
 
-  // Padrão sutil de "tijolo trancado"
   ctx.save();
   ctx.beginPath();
   ctx.rect(sx, sy, w, h);
@@ -1589,7 +1612,6 @@ function drawLockedArea(area){
   }
   ctx.restore();
 
-  // Borda
   var pulse = 0.4 + Math.sin(state.time*3)*0.2;
   if(adj && canPay){
     ctx.strokeStyle = 'rgba(255,209,102,'+pulse+')';
@@ -1603,18 +1625,14 @@ function drawLockedArea(area){
   }
   ctx.strokeRect(sx+1.5, sy+1.5, w-3, h-3);
 
-  // Cadeado / ícone central
   var cx = sx + w/2;
   var cy = sy + h/2;
-  var lockSize = 28;
 
-  // Painel central escuro
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   var panelW = w - 20;
   var panelH = 60;
   ctx.fillRect(cx - panelW/2, cy - panelH/2, panelW, panelH);
 
-  // Borda do painel
   if(adj && canPay){
     ctx.strokeStyle = '#ffd166';
     ctx.lineWidth = 2;
@@ -1624,13 +1642,11 @@ function drawLockedArea(area){
   }
   ctx.strokeRect(cx - panelW/2, cy - panelH/2, panelW, panelH);
 
-  // Ícone cadeado (emoji 🔒 desenhado)
   ctx.font = 'bold 22px system-ui';
   ctx.textAlign = 'center';
   ctx.fillStyle = adj && canPay ? '#ffd166' : '#666';
   ctx.fillText(adj && canPay ? '🔓' : '🔒', cx, cy - 6);
 
-  // Custo
   ctx.font = 'bold 13px system-ui';
   if(!adj){
     ctx.fillStyle = '#555';
@@ -1648,13 +1664,11 @@ function drawLockedArea(area){
   ctx.textAlign = 'left';
 }
 
-/* ============ DESENHO DAS ÁREAS DESBLOQUEADAS ============ */
 function drawAreaBorder(area){
   var sx = area.x*TILE - state.cam.x;
   var sy = area.y*TILE - state.cam.y;
   var w = area.w*TILE;
   var h = area.h*TILE;
-  // Borda sutil verde/azul nas áreas liberadas
   ctx.strokeStyle = 'rgba(6,214,160,0.25)';
   ctx.lineWidth = 1.5;
   ctx.strokeRect(sx+0.5, sy+0.5, w-1, h-1);
@@ -1756,7 +1770,6 @@ function draw(){
   var vw=w/state.zoom, vh=h/state.zoom;
   var cx=state.cam.x,cy=state.cam.y;
 
-  // 1. Desenha tiles de áreas DESBLOQUEADAS
   var sX=Math.max(0,Math.floor(cx/TILE)-1);
   var sY=Math.max(0,Math.floor(cy/TILE)-1);
   var eX=Math.min(MAP_W,sX+Math.ceil(vw/TILE)+2);
@@ -1767,16 +1780,13 @@ function draw(){
     }
   }
 
-  // 2. Bordas das áreas desbloqueadas
   for(var i=0;i<AREAS.length;i++){
     if(AREAS[i].unlocked) drawAreaBorder(AREAS[i]);
   }
 
-  // 3. Desenha áreas bloqueadas POR CIMA (opacas, escondem conteúdo)
   for(var i=0;i<AREAS.length;i++){
     if(!AREAS[i].unlocked){
       var a = AREAS[i];
-      // Culling: só desenha se estiver visível
       var ax1 = a.x*TILE - cx, ay1 = a.y*TILE - cy;
       var ax2 = ax1 + a.w*TILE, ay2 = ay1 + a.h*TILE;
       if(ax2 < 0 || ay2 < 0 || ax1 > vw || ay1 > vh) continue;
@@ -1802,9 +1812,6 @@ function draw(){
   ctx.fillStyle=vg;ctx.fillRect(0,0,w,h);
 }
 
-/* =====================================================
-   RECRUTAMENTO + MINIJOGO
-   ===================================================== */
 var currentEnc=null;
 var miniGameState=null;
 var contractActive=false;
@@ -1823,6 +1830,7 @@ function getRandomRecruitOfRarity(rar){
   return pool[Math.floor(Math.random()*pool.length)];
 }
 function triggerRecruit(){
+  if(currentEnc) return;
   var f=document.getElementById('fade');
   f.classList.add('on');
   setTimeout(function(){
@@ -1908,15 +1916,13 @@ function startMiniGame(){
   document.getElementById('mgHint').textContent='Toque/Clique em ENVIAR CONVITE quando o cursor estiver na ZONA VERDE!';
 }
 function updateMiniGameCursor(){
-  if(!miniGameState||!miniGameState.active)return;
+  if(!miniGameState||!miniGameState.active||miniGameState.stopped)return;
   var el=document.getElementById('mgCursor');
   var elapsed=performance.now()-miniGameState.startTime;
   var t=(elapsed%miniGameState.duration)/miniGameState.duration;
   var pos=t*100;
   if(Math.floor(elapsed/miniGameState.duration)%2===1)pos=100-pos;
   el.style.left=pos+'%';
-  if(miniGameState.stopped)return;
-  requestAnimationFrame(updateMiniGameCursor);
 }
 function stopMiniGame(){
   if(!miniGameState||!miniGameState.active)return false;
@@ -1959,7 +1965,6 @@ function resolveRecruit(){
     state.essence-=custo;
     markHudDirty();
     startMiniGame();
-    updateMiniGameCursor();
     document.getElementById('btnTry').textContent='⚡ ENVIAR AGORA!';
     return;
   }
@@ -1972,6 +1977,7 @@ function resolveRecruit(){
     if(sucesso){
       var recruit={
         id:Date.now()+Math.random(), nome:rec.nome, raridade:rec.raridade,
+        genero:rec.genero||'M',
         x:0,y:0,tx:null,ty:null,
         role:'idle', state:'idle', workTimer:0.5,
         facing:'down', bob:0, targetWorkTile:null,
@@ -2020,14 +2026,7 @@ document.getElementById('btnFlee').onclick=function(){
 };
 document.getElementById('btnTry').onclick=function(){if(currentEnc)resolveRecruit();};
 
-/* =====================================================
-   MERGE
-   ===================================================== */
-var MERGE_RULES={
-  comum:{qtd:5, custo:100, raridade_destino:'incomum'},
-  incomum:{qtd:4, custo:500, raridade_destino:'raro'},
-  raro:{qtd:3, custo:2500, raridade_destino:'epico'}
-};
+var MERGE_RULES=BALANCE.mergeRules;
 function openMerge(){
   renderMerge();
   document.getElementById('merge').classList.add('show');
@@ -2054,7 +2053,7 @@ function renderMerge(){
       div.className='mergeItem r'+rarOrigem.charAt(0);
       div.innerHTML=
         '<div class="mergeRow"><div class="nm">'+icone+' '+nome+' <span style="color:#aaa;font-size:.7rem">('+rarOrigem+')</span></div><div class="qty">'+qtd+' / '+rule.qtd+'</div></div>'+
-        '<div class="mergeRow"><div class="cost">Custo: '+rule.custo+' 🪙 → '+rule.raridade_destino.toUpperCase()+'</div><button data-nome="'+nome+'" data-rar="'+rarOrigem+'" '+(pode?'':'disabled')+'>'+(pode?'Fundir':'Faltam')+'</button></div>';
+        '<div class="mergeRow"><div class="cost">Custo: '+rule.custo+' 🪙 → '+rule.destino.toUpperCase()+'</div><button data-nome="'+nome+'" data-rar="'+rarOrigem+'" '+(pode?'':'disabled')+'>'+(pode?'Fundir':'Faltam')+'</button></div>';
       grid.appendChild(div);
     });
   });
@@ -2076,13 +2075,14 @@ function doMerge(nome, rarOrigem){
     if(idx>=0)state.recruits.splice(idx,1);
   });
   state.coins-=rule.custo;
-  var pool=RECRUTAS.filter(function(r){return r.raridade===rule.raridade_destino;});
+  var pool=RECRUTAS.filter(function(r){return r.raridade===rule.destino;});
   var novoRec=pool.length>0?pool[Math.floor(Math.random()*pool.length)]:{
-    id:9999, nome:nome, genero:'M', raridade:rule.raridade_destino,
+    id:9999, nome:nome, genero:'M', raridade:rule.destino,
     profissao:'Agricultor', especializacao:'Plenitude', bonus:35, icone:'⭐'
   };
   var novo={
     id:Date.now()+Math.random(), nome:novoRec.nome, raridade:novoRec.raridade,
+    genero:novoRec.genero||'M',
     x:0,y:0,tx:null,ty:null,
     role:'idle', state:'idle', workTimer:0.5,
     facing:'down', bob:0, targetWorkTile:null,
@@ -2096,9 +2096,6 @@ function doMerge(nome, rarOrigem){
 document.getElementById('mergeClose').onclick=function(){document.getElementById('merge').classList.remove('show');};
 document.getElementById('btnMerge').onclick=function(){openMerge();};
 
-/* =====================================================
-   MODAL (loja / celeiro / expandir)
-   ===================================================== */
 var currentModal=null;
 function openModal(type){
   currentModal=type;
@@ -2319,7 +2316,6 @@ function renderBarnContent(){
 function renderExpandContent(){
   var grid=document.getElementById('modalGrid');
   grid.innerHTML='';
-  // Ordena: disponíveis (adjacentes + pode pagar) primeiro, depois adjacentes sem $, depois as demais
   var sorted = AREAS.slice().sort(function(a,b){
     if(a.unlocked && !b.unlocked) return 1;
     if(!a.unlocked && b.unlocked) return -1;
@@ -2371,9 +2367,6 @@ document.getElementById('btnShop').onclick=function(){openModal('shop');};
 document.getElementById('btnBarn').onclick=function(){openModal('barn');};
 document.getElementById('btnExpand').onclick=function(){openModal('expand');};
 
-/* =====================================================
-   SAVE / LOAD
-   ===================================================== */
 function save(){
   try{
     localStorage.setItem(SAVE_KEY,JSON.stringify({
@@ -2442,12 +2435,15 @@ function load(){
         }
       }
     });
+    state.recruits.forEach(function(r){
+      if(!r.genero){
+        var rec=RECRUTAS.find(function(x){return x.nome===r.nome;});
+        r.genero = rec ? rec.genero : 'M';
+      }
+    });
   }catch(e){}
 }
 
-/* =====================================================
-   INICIALIZAÇÃO
-   ===================================================== */
 function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
 window.addEventListener('resize',resize);
 resize();
@@ -2456,16 +2452,13 @@ load();
 if(!state.map || !Array.isArray(state.map) || state.map.length !== MAP_H){
   state.map = genMap();
 }
-// Filtra plantas órfãs (cujo tile não é mais PLANTED)
 state.plants = state.plants.filter(function(pl){
   return state.map[pl.ty] && state.map[pl.ty][pl.tx] === T.PLANTED;
 });
-// Limpa tillExpiry já expirados
 state.tillExpiry = state.tillExpiry.filter(function(te){
   return state.time < te.until;
 });
 renderBonus();
-// Recalcula "grown" com base no tempo real (após BON estar atualizado)
 state.plants.forEach(function(pl){
   if(pl.grown) return;
   var gt = GROW/(1+BON.growth);
