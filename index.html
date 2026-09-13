@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mini Jogo RPG - Com Mapa</title>
+  <title>Mini Jogo RPG - Tilemap</title>
   <style>
     * {
       box-sizing: border-box;
@@ -26,35 +26,34 @@
       padding: 10px;
     }
 
-    h1 {
-      margin-bottom: 5px;
-      font-size: 20px;
-    }
-
-    p {
-      margin-bottom: 10px;
-      color: #aaa;
-      font-size: 14px;
-    }
+    h1 { margin-bottom: 5px; font-size: 20px; }
+    p { margin-bottom: 10px; color: #aaa; font-size: 14px; }
 
     #game-container {
       position: relative;
-      width: 100%;
-      max-width: 500px;
-      height: 320px;
-      
-      /* Textura Pixel Art de Grama gerada em SVG puro (Garantia de carregamento offline) */
-      background-color: #388e3c;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%3C2e7d32'/%3E%3Crect x='0' y='0' width='16' height='16' fill='%3C388e3c'/%3E%3Crect x='16' y='16' width='16' height='16' fill='%3C388e3c'/%3E%3Cpath d='M4 4h2v2H4zM12 8h2v2h-2zM20 4h2v2h-2zM28 10h2v2h-2zM6 20h2v2H6zM14 26h2v2h-2zM22 18h2v2h-2zM26 28h2v2h-2z' fill='%3C4caf50'/%3E%3Cpath d='M2 12h2v2H2zM10 2h2v2h-2zM18 12h2v2h-2zM24 6h2v2h-2zM2 28h2v2H2zM10 18h2v2h-2zM18 28h2v2h-2zM30 20h2v2h-2z' fill='%3C1b5e20'/%3E%3C/svg%3E");
-      background-size: 64px 64px;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-      
+      width: 384px;  /* 12 blocos de 32px */
+      height: 320px; /* 10 blocos de 32px */
+      background-color: #2b2b36;
       border: 4px solid #4e4e63;
       border-radius: 8px;
       overflow: hidden;
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
     }
+
+    /* Camada onde os blocos do mapa são desenhados */
+    #map {
+      display: grid;
+      grid-template-columns: repeat(12, 32px);
+      grid-template-rows: repeat(10, 32px);
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Estilos de cada tipo de bloco (Tile) */
+    .tile { width: 32px; height: 32px; }
+    .tile-0 { background-color: #4caf50; } /* Grama */
+    .tile-1 { background-color: #795548; border: 2px solid #5d4037; } /* Cerca/Pedra (Obstáculo) */
+    .tile-2 { background-color: #2e7d32; border-radius: 50%; } /* Árvore (Obstáculo) */
 
     /* Container do Personagem */
     #player {
@@ -64,7 +63,7 @@
       background-image: url('./assets/character-spritesheet.png?v=3');
       background-repeat: no-repeat;
       image-rendering: pixelated;
-      image-rendering: crisp-edges;
+      z-index: 10;
     }
 
     .touch-controls {
@@ -93,7 +92,6 @@
     .btn-touch:active {
       background-color: #5d5d7a;
       transform: translateY(2px);
-      box-shadow: 0 2px 0 #222230;
     }
 
     .btn-up { grid-column: 2; grid-row: 1; }
@@ -104,10 +102,11 @@
 </head>
 <body>
 
-  <h1>Mini Jogo RPG</h1>
-  <p>Explore o mapa com o personagem</p>
+  <h1>Mini Jogo RPG - Tilemap</h1>
+  <p>Verde = Grama | Marrom = Cerca | Escuro = Árvore</p>
 
   <div id="game-container">
+    <div id="map"></div>
     <div id="player"></div>
   </div>
 
@@ -119,42 +118,82 @@
   </div>
 
   <script>
-    const player = document.getElementById('player');
-    const container = document.getElementById('game-container');
+    const tileSize = 32;
+    const cols = 12;
+    const rows = 10;
 
+    // MATRIZ DO MAPA:
+    // 0 = Grama (Livre)
+    // 1 = Cerca/Pedra (Bloqueado)
+    // 2 = Árvore (Bloqueado)
+    const mapLayout = [
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 2, 2, 0, 0, 0, 2, 2, 0, 0, 1],
+      [1, 0, 2, 2, 0, 0, 0, 2, 2, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    ];
+
+    // Desenha o mapa na tela dinamicamente
+    const mapElement = document.getElementById('map');
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const tile = document.createElement('div');
+        tile.className = `tile tile-${mapLayout[r][c]}`;
+        mapElement.appendChild(tile);
+      }
+    }
+
+    const player = document.getElementById('player');
     const frameSize = 64;
     const speed = 3;
 
-    let posX = (container.clientWidth - frameSize) / 2;
-    let posY = (container.clientHeight - frameSize) / 2;
-
+    let posX = 64;
+    let posY = 64;
     let currentFrame = 0;
     let animationRow = 10;
     let frameTimer = 0;
-    const totalWalkFrames = 9;
-    const animationSpeed = 5;
 
     const keys = { Up: false, Down: false, Left: false, Right: false };
 
-    // --- Suporte para Celular (Touch) ---
+    // --- Colisão por Blocos ---
+    function isSolid(x, y) {
+      // Pega a caixa de colisão apenas nos pés do personagem
+      const feetX = x + 16;
+      const feetY = y + 40;
+      const feetWidth = 32;
+      const feetHeight = 20;
+
+      // Converte as coordenadas (pixels) em posições na Matriz (linha e coluna)
+      const leftCol = Math.floor(feetX / tileSize);
+      const rightCol = Math.floor((feetX + feetWidth) / tileSize);
+      const topRow = Math.floor(feetY / tileSize);
+      const bottomRow = Math.floor((feetY + feetHeight) / tileSize);
+
+      // Checa se algum dos 4 cantos dos pés está sobre um bloco sólido (!= 0)
+      for (let r = topRow; r <= bottomRow; r++) {
+        for (let c = leftCol; c <= rightCol; c++) {
+          if (r >= 0 && r < rows && c >= 0 && c < cols) {
+            if (mapLayout[r][c] !== 0) return true; // Colidiu!
+          }
+        }
+      }
+      return false;
+    }
+
     function bindButton(id, keyName) {
       const btn = document.getElementById(id);
-      
-      const press = (e) => {
-        if (e.cancelable) e.preventDefault();
-        keys[keyName] = true;
-      };
-
-      const release = (e) => {
-        if (e.cancelable) e.preventDefault();
-        keys[keyName] = false;
-      };
-
-      btn.addEventListener('touchstart', press, { passive: false });
-      btn.addEventListener('touchend', release, { passive: false });
-      btn.addEventListener('touchcancel', release, { passive: false });
-      btn.addEventListener('mousedown', press);
-      btn.addEventListener('mouseup', release);
+      const start = (e) => { if (e.cancelable) e.preventDefault(); keys[keyName] = true; };
+      const end = (e) => { if (e.cancelable) e.preventDefault(); keys[keyName] = false; };
+      btn.addEventListener('touchstart', start, { passive: false });
+      btn.addEventListener('touchend', end, { passive: false });
+      btn.addEventListener('mousedown', start);
+      btn.addEventListener('mouseup', end);
     }
 
     bindButton('btn-up', 'Up');
@@ -162,64 +201,35 @@
     bindButton('btn-left', 'Left');
     bindButton('btn-right', 'Right');
 
-    // --- Suporte para Teclado (PC) ---
-    window.addEventListener('keydown', (e) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
-      if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.Up = true;
-      if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.Down = true;
-      if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.Left = true;
-      if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = true;
-    });
-
-    window.addEventListener('keyup', (e) => {
-      if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.Up = false;
-      if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.Down = false;
-      if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.Left = false;
-      if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = false;
-    });
-
-    // --- Loop Principal ---
     function gameLoop() {
       let isMoving = false;
+      let nextX = posX;
+      let nextY = posY;
 
-      if (keys.Up) {
-        posY -= speed;
-        animationRow = 8;
-        isMoving = true;
-      } else if (keys.Down) {
-        posY += speed;
-        animationRow = 10;
-        isMoving = true;
-      } else if (keys.Left) {
-        posX -= speed;
-        animationRow = 9;
-        isMoving = true;
-      } else if (keys.Right) {
-        posX += speed;
-        animationRow = 11;
-        isMoving = true;
+      if (keys.Up) { nextY -= speed; animationRow = 8; isMoving = true; }
+      else if (keys.Down) { nextY += speed; animationRow = 10; isMoving = true; }
+      else if (keys.Left) { nextX -= speed; animationRow = 9; isMoving = true; }
+      else if (keys.Right) { nextX += speed; animationRow = 11; isMoving = true; }
+
+      // Só move se a próxima posição NÃO for um bloco sólido
+      if (!isSolid(nextX, nextY)) {
+        posX = nextX;
+        posY = nextY;
       }
-
-      posX = Math.max(0, Math.min(container.clientWidth - frameSize, posX));
-      posY = Math.max(0, Math.min(container.clientHeight - frameSize, posY));
 
       if (isMoving) {
         frameTimer++;
-        if (frameTimer >= animationSpeed) {
+        if (frameTimer >= 5) {
           frameTimer = 0;
-          currentFrame = (currentFrame % (totalWalkFrames - 1)) + 1;
+          currentFrame = (currentFrame % 8) + 1;
         }
       } else {
         currentFrame = 0;
-        frameTimer = 0;
       }
 
       player.style.left = posX + 'px';
       player.style.top = posY + 'px';
-
-      const bgX = -(currentFrame * frameSize);
-      const bgY = -(animationRow * frameSize);
-      player.style.backgroundPosition = `${bgX}px ${bgY}px`;
+      player.style.backgroundPosition = `-${currentFrame * frameSize}px -${animationRow * frameSize}px`;
 
       requestAnimationFrame(gameLoop);
     }
