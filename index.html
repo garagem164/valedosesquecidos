@@ -59,7 +59,8 @@
       background-position: center;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
-      will-change: left, top;
+      /* Removida qualquer transicao para o movimento ser instantaneo */
+      transition: none;
     }
 
     /* Controle Virtual Touch para Celular */
@@ -107,7 +108,6 @@
     <div id="player"></div>
   </div>
 
-  <!-- Botoes de controle touch -->
   <div class="touch-controls">
     <button class="btn-touch btn-up" id="btn-up">⬆</button>
     <button class="btn-touch btn-left" id="btn-left">⬅</button>
@@ -125,6 +125,8 @@
 
     let posX = (container.clientWidth - playerWidth) / 2;
     let posY = (container.clientHeight - playerHeight) / 2;
+    let isFacingLeft = false;
+    let stepTimer = 0; // Utilizado para animar os passos
 
     player.style.left = posX + 'px';
     player.style.top = posY + 'px';
@@ -136,7 +138,7 @@
       Right: false
     };
 
-    // --- Suporte a Teclado (PC) ---
+    // --- Suporte a Teclado ---
     window.addEventListener('keydown', (e) => {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
         e.preventDefault();
@@ -154,7 +156,7 @@
       if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = false;
     });
 
-    // --- Suporte a Toque na Tela (Celular) ---
+    // --- Suporte a Celular ---
     function setupTouchButton(id, dir) {
       const btn = document.getElementById(id);
 
@@ -179,25 +181,42 @@
     setupTouchButton('btn-left', 'Left');
     setupTouchButton('btn-right', 'Right');
 
-    // --- Loop do Jogo ---
+    // --- Loop Principal ---
     function gameLoop() {
-      if (keys.Up) posY -= speed;
-      if (keys.Down) posY += speed;
+      let isMoving = false;
+
+      if (keys.Up) { posY -= speed; isMoving = true; }
+      if (keys.Down) { posY += speed; isMoving = true; }
 
       if (keys.Left) {
         posX -= speed;
-        player.style.transform = 'scaleX(-1)';
+        isFacingLeft = true;
+        isMoving = true;
       }
       if (keys.Right) {
         posX += speed;
-        player.style.transform = 'scaleX(1)';
+        isFacingLeft = false;
+        isMoving = true;
       }
 
+      // Limites da arena
       posX = Math.max(0, Math.min(container.clientWidth - playerWidth, posX));
       posY = Math.max(0, Math.min(container.clientHeight - playerHeight, posY));
 
+      // Efeito visual de passos (balanço vertical enquanto anda)
+      let bounceY = 0;
+      if (isMoving) {
+        stepTimer += 0.2;
+        bounceY = Math.sin(stepTimer) * 3; // Faz o boneco subir e descer levemente
+      } else {
+        stepTimer = 0;
+      }
+
+      // Aplica a direção e a posição sem lag
+      const scaleX = isFacingLeft ? -1 : 1;
+      player.style.transform = `scaleX(${scaleX})`;
       player.style.left = posX + 'px';
-      player.style.top = posY + 'px';
+      player.style.top = (posY + bounceY) + 'px';
 
       requestAnimationFrame(gameLoop);
     }
