@@ -34,22 +34,27 @@
     const SCALE = 2;
     const SCALED_SIZE = TILE_SIZE * SCALE;
 
-    // 1. Carregar as imagens
+    // 1. Carregar o Tileset do Cenário
     const tileset = new Image();
     tileset.src = 'assets/spr_tileset_sunnysideworld_16px.png';
 
-    // 2. Dados do Personagem
+    // 2. Carregar a Spritesheet do Personagem
+    const playerImage = new Image();
+    playerImage.src = 'assets/character-spritesheet.png'; 
+
+    // Dados do Personagem
     const player = {
-      x: 144, // Posição inicial X na tela
-      y: 144, // Posição inicial Y na tela
+      x: 144,
+      y: 144,
       speed: 3,
       size: SCALED_SIZE,
-      color: '#ff4757' // Quadrado vermelho representando o personagem por enquanto
+      // Recorte do primeiro frame do personagem (assumindo 16x16 por frame)
+      frameX: 0,
+      frameY: 0
     };
 
-    // Teclas pressionadas
+    // Controle de Teclas
     const keys = {};
-
     window.addEventListener('keydown', (e) => keys[e.key] = true);
     window.addEventListener('keyup', (e) => keys[e.key] = false);
 
@@ -67,7 +72,6 @@
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ];
 
-    // Atualizar posição do jogador
     function atualizar() {
       if (keys['ArrowUp'] || keys['w']) player.y -= player.speed;
       if (keys['ArrowDown'] || keys['s']) player.y += player.speed;
@@ -75,7 +79,6 @@
       if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
     }
 
-    // Desenhar o mapa
     function desenharMapa() {
       for (let linha = 0; linha < mapa.length; linha++) {
         for (let coluna = 0; coluna < mapa[linha].length; coluna++) {
@@ -92,13 +95,15 @@
       }
     }
 
-    // Desenhar o jogador
     function desenharJogador() {
-      ctx.fillStyle = player.color;
-      ctx.fillRect(player.x, player.y, player.size, player.size);
+      // Recorta apenas 1 frame de 16x16 da imagem do personagem
+      ctx.drawImage(
+        playerImage,
+        player.frameX * TILE_SIZE, player.frameY * TILE_SIZE, TILE_SIZE, TILE_SIZE, // Origem
+        player.x, player.y, player.size, player.size                                 // Destino
+      );
     }
 
-    // Game Loop continuo
     function gameLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
@@ -109,10 +114,16 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // Iniciar o jogo após carregar a imagem
-    tileset.onload = () => {
-      gameLoop();
-    };
+    let carregadas = 0;
+    function checarCarregamento() {
+      carregadas++;
+      if (carregadas === 2) {
+        gameLoop();
+      }
+    }
+
+    tileset.onload = checarCarregamento;
+    playerImage.onload = checarCarregamento;
   </script>
 </body>
 </html>
