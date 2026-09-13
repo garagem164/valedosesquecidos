@@ -437,7 +437,7 @@ var BALANCE={
   tile:32, mapW:49, mapH:49,
   areaSize:7, gridCols:7, gridRows:7,
   areaInicial:24,
-  saveKey:'fazendinha_v22',
+  saveKey:'fazendinha_v23',
   playerSpeed:140, playerAccel:12, playerW:18, playerH:20,
   camLerp:6,
   zoomMin:0.6, zoomMax:2.5, zoomStep:1.2,
@@ -505,29 +505,37 @@ var PAL={
   }
 };
 
-// ─── SPRITE SHEET DO PLAYER ───
-// Carrega assets/character-spritesheet.png (RPG Maker VX Ace: 3 colunas x 4 linhas = 12 frames)
-// Linhas: 0=baixo  1=esquerda  2=direita  3=cima
-// Colunas: 0=parado  1=passo A  2=passo B (ou 3 frames de animação)
+// ─── SPRITE SHEET DO PLAYER (Universal LPC) ───
+// Layout confirmado pelo Gemini:
+//   - 13 colunas × 54 linhas, frame 64x64
+//   - Linhas de walk (0-indexed):
+//       8  = subir (costas)
+//       9  = esquerda
+//       10 = descer (frente)
+//       11 = direita
+//   - 9 frames de walk por direção (colunas 0-8)
 var PLAYER_SPRITE={
-  frameW: 16,          // largura do frame na imagem
-  frameH: 16,          // altura do frame na imagem
-  scale: 2,            // escala ao desenhar (16*2=32 = TILE)
-  rowDown: 0,          // linha da imagem = olhando baixo
-  rowLeft: 1,          // linha da imagem = olhando esquerda
-  rowRight: 2,         // linha da imagem = olhando direita
-  rowUp: 3,            // linha da imagem = olhando cima
-  walkFrames: [1,0,2,0], // sequência de frames para caminhada (idx0=parado)
-  idleFrame: 0         // frame quando parado
+  frameW: 64,
+  frameH: 64,
+  scale: 0.5,          // 64 * 0.5 = 32 = TILE
+  rowUp: 8,            // linha 8 = subir (0-indexed)
+  rowLeft: 9,          // linha 9 = esquerda
+  rowDown: 10,         // linha 10 = descer/frente
+  rowRight: 11,        // linha 11 = direita
+  totalFrames: 9,      // 9 frames de walk por direção
+  frameDuration: 0.1   // segundos por frame (~10 FPS)
 };
 var spriteSheetImg=null;
 var spriteSheetReady=false;
+var playerAnimTimer=0;
+var playerAnimFrame=0;
 
 function initSpriteSheet(){
   spriteSheetImg=document.getElementById('spriteSheet');
   if(!spriteSheetImg)return;
   if(spriteSheetImg.complete&&spriteSheetImg.naturalWidth>0){
     spriteSheetReady=true;
+    console.log('✅ Sprite sheet carregado:',spriteSheetImg.naturalWidth+'x'+spriteSheetImg.naturalHeight);
   }else{
     spriteSheetImg.addEventListener('load',function(){
       spriteSheetReady=true;
@@ -1073,7 +1081,7 @@ function drawMoradorPortrait(rec,c,g){
 }
 
 /* =====================================================
-   RENDER — MORADOR NO MAPA (PROCEDURAL FIRERED)
+   RENDER — MORADOR NO MAPA
    ===================================================== */
 function drawRecruitOnMap(rec,sx,sy,sz,bo){
   var s=sz;
@@ -3416,6 +3424,17 @@ function update(dt){
   if(p.acd>0)p.acd-=dt;
   updateFloats(dt);
   updateNevoa(scaledDt);
+  // Animação do player
+  if(p.walking){
+    playerAnimTimer+=dt;
+    if(playerAnimTimer>=PLAYER_SPRITE.frameDuration){
+      playerAnimTimer=0;
+      playerAnimFrame=(playerAnimFrame+1)%PLAYER_SPRITE.totalFrames;
+    }
+  }else{
+    playerAnimTimer=0;
+    playerAnimFrame=0;
+  }
   Object.keys(state.areasDesbloqueando).forEach(function(id){
     var a=state.areasDesbloqueando[id];
     if(state.time-a.start>a.duration)delete state.areasDesbloqueando[id];
@@ -3755,7 +3774,7 @@ function drawAreaBorder(area){
 }
 
 /* =====================================================
-   RENDER — PLAYER (SPRITE SHEET + FALLBACK)
+   RENDER — PLAYER (SPRITE SHEET LPC)
    ===================================================== */
 function getPlayerSpriteRow(){
   var p=state.player;
@@ -3765,27 +3784,16 @@ function getPlayerSpriteRow(){
   if(p.dir==='up')return PLAYER_SPRITE.rowUp;
   return PLAYER_SPRITE.rowDown;
 }
-function getPlayerSpriteCol(){
-  var p=state.player;
-  // Índice no array walkFrames (0..3). Parado = idx 0
-  var frameIdx=0;
-  if(p.walking)frameIdx=1+(p.af%3); // p.af vai de 0..3, então 1..3
-  if(frameIdx>=PLAYER_SPRITE.walkFrames.length)frameIdx=0;
-  return PLAYER_SPRITE.walkFrames[frameIdx];
-}
 function drawPlayerSpriteSheet(sx,sy){
-  var p=state.player;
-  var col=getPlayerSpriteCol();
+  var col=playerAnimFrame; // 0..8
   var row=getPlayerSpriteRow();
   var fw=PLAYER_SPRITE.frameW;
   var fh=PLAYER_SPRITE.frameH;
-  var scale=PLAYER_SPRITE.scale;
-  var dw=fw*scale;
-  var dh=fh*scale;
-  // Ajuste: alinha o pé do sprite com o centro do player (que é no meio do tile)
-  // O sprite é desenhado a partir do topo-esquerdo
+  var dw=fw*PLAYER_SPRITE.scale; // 32
+  var dh=fh*PLAYER_SPRITE.scale; // 32
+  // Centraliza o sprite horizontalmente e alinha o pé com o centro do player
   var dx=sx-dw/2;
-  var dy=sy-dh+6; // ajuste fino vertical — pé fica próximo do centro do player
+  var dy=sy-dh/2; // centro do sprite = centro do player (tile 32x32 casa com 32x32 escalado)
   try{
     ctx.imageSmoothingEnabled=false;
     ctx.drawImage(
