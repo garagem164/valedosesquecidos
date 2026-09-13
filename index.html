@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mini Jogo - Movimentação</title>
+  <title>Mini Jogo Mobile - Animação</title>
   <style>
     * {
       box-sizing: border-box;
@@ -49,26 +49,43 @@
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
     }
 
-    #player {
+    /* Container base da posição */
+    #player-wrapper {
       position: absolute;
       width: 64px;
       height: 80px;
+    }
+
+    /* Sprite onde aplicamos a animação de passos/balanço */
+    #player-sprite {
+      width: 100%;
+      height: 100%;
       background-image: url('./assets/Spr_E_Noland.png');
       background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
-      /* Removida qualquer transicao para o movimento ser instantaneo */
-      transition: none;
+      transform-origin: bottom center; /* Anima a partir dos pés */
     }
 
-    /* Controle Virtual Touch para Celular */
+    /* Sombra nos pés para dar sensação de profundidade e chão */
+    #player-shadow {
+      position: absolute;
+      bottom: 2px;
+      left: 16px;
+      width: 32px;
+      height: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 50%;
+      z-index: -1;
+    }
+
     .touch-controls {
       display: grid;
-      grid-template-columns: repeat(3, 60px);
-      grid-template-rows: repeat(3, 60px);
-      gap: 5px;
+      grid-template-columns: repeat(3, 65px);
+      grid-template-rows: repeat(3, 65px);
+      gap: 8px;
       margin-top: 15px;
       justify-content: center;
     }
@@ -78,7 +95,7 @@
       color: #fff;
       border: 2px solid #5d5d7a;
       border-radius: 12px;
-      font-size: 22px;
+      font-size: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -105,7 +122,10 @@
   <p>Toque nos botões para mover o personagem</p>
 
   <div id="game-container">
-    <div id="player"></div>
+    <div id="player-wrapper">
+      <div id="player-shadow"></div>
+      <div id="player-sprite"></div>
+    </div>
   </div>
 
   <div class="touch-controls">
@@ -116,7 +136,8 @@
   </div>
 
   <script>
-    const player = document.getElementById('player');
+    const playerWrapper = document.getElementById('player-wrapper');
+    const playerSprite = document.getElementById('player-sprite');
     const container = document.getElementById('game-container');
 
     const playerWidth = 64;
@@ -126,62 +147,35 @@
     let posX = (container.clientWidth - playerWidth) / 2;
     let posY = (container.clientHeight - playerHeight) / 2;
     let isFacingLeft = false;
-    let stepTimer = 0; // Utilizado para animar os passos
+    let walkTimer = 0; // Controla a velocidade do passo da animação
 
-    player.style.left = posX + 'px';
-    player.style.top = posY + 'px';
+    const keys = { Up: false, Down: false, Left: false, Right: false };
 
-    const keys = {
-      Up: false,
-      Down: false,
-      Left: false,
-      Right: false
-    };
-
-    // --- Suporte a Teclado ---
-    window.addEventListener('keydown', (e) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
-        e.preventDefault();
-      }
-      if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.Up = true;
-      if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.Down = true;
-      if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.Left = true;
-      if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = true;
-    });
-
-    window.addEventListener('keyup', (e) => {
-      if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.Up = false;
-      if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.Down = false;
-      if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.Left = false;
-      if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = false;
-    });
-
-    // --- Suporte a Celular ---
-    function setupTouchButton(id, dir) {
+    function bindButton(id, keyName) {
       const btn = document.getElementById(id);
-
-      const start = (e) => {
-        e.preventDefault();
-        keys[dir] = true;
+      
+      const press = (e) => {
+        if (e.cancelable) e.preventDefault();
+        keys[keyName] = true;
       };
 
-      const end = (e) => {
-        e.preventDefault();
-        keys[dir] = false;
+      const release = (e) => {
+        if (e.cancelable) e.preventDefault();
+        keys[keyName] = false;
       };
 
-      btn.addEventListener('touchstart', start, { passive: false });
-      btn.addEventListener('touchend', end, { passive: false });
-      btn.addEventListener('mousedown', start);
-      btn.addEventListener('mouseup', end);
+      btn.addEventListener('touchstart', press, { passive: false });
+      btn.addEventListener('touchend', release, { passive: false });
+      btn.addEventListener('touchcancel', release, { passive: false });
+      btn.addEventListener('mousedown', press);
+      btn.addEventListener('mouseup', release);
     }
 
-    setupTouchButton('btn-up', 'Up');
-    setupTouchButton('btn-down', 'Down');
-    setupTouchButton('btn-left', 'Left');
-    setupTouchButton('btn-right', 'Right');
+    bindButton('btn-up', 'Up');
+    bindButton('btn-down', 'Down');
+    bindButton('btn-left', 'Left');
+    bindButton('btn-right', 'Right');
 
-    // --- Loop Principal ---
     function gameLoop() {
       let isMoving = false;
 
@@ -199,24 +193,36 @@
         isMoving = true;
       }
 
-      // Limites da arena
+      // Limites da tela
       posX = Math.max(0, Math.min(container.clientWidth - playerWidth, posX));
       posY = Math.max(0, Math.min(container.clientHeight - playerHeight, posY));
 
-      // Efeito visual de passos (balanço vertical enquanto anda)
-      let bounceY = 0;
-      if (isMoving) {
-        stepTimer += 0.2;
-        bounceY = Math.sin(stepTimer) * 3; // Faz o boneco subir e descer levemente
-      } else {
-        stepTimer = 0;
-      }
+      // Aplica a posição na tela
+      playerWrapper.style.left = posX + 'px';
+      playerWrapper.style.top = posY + 'px';
 
-      // Aplica a direção e a posição sem lag
-      const scaleX = isFacingLeft ? -1 : 1;
-      player.style.transform = `scaleX(${scaleX})`;
-      player.style.left = posX + 'px';
-      player.style.top = (posY + bounceY) + 'px';
+      // --- Animação Procedural de Passos ---
+      const directionScale = isFacingLeft ? -1 : 1;
+
+      if (isMoving) {
+        walkTimer += 0.25; // Velocidade da passada
+
+        // Simula a passada: Inclinação do corpo (Rotation) + Elevação dos passos (Bobbing/Tilt)
+        const tiltAngle = Math.sin(walkTimer) * 8; // Inclina para frente/trás (+-8 graus)
+        const stepBounce = Math.abs(Math.cos(walkTimer)) * 5; // Levanta o corpo a cada passo (0 a 5px)
+        const squash = 1 + (Math.sin(walkTimer * 2) * 0.05); // Deforma levemente o corpo simetrizando o impacto da pisada
+
+        playerSprite.style.transform = `
+          scaleX(${directionScale}) 
+          rotate(${tiltAngle * directionScale}deg) 
+          translateY(${-stepBounce}px)
+          scaleY(${squash})
+        `;
+      } else {
+        // Personagem parado: Mantém em pé e reseta animações
+        walkTimer = 0;
+        playerSprite.style.transform = `scaleX(${directionScale}) rotate(0deg) translateY(0px) scaleY(1)`;
+      }
 
       requestAnimationFrame(gameLoop);
     }
