@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mini Jogo - Personagem Customizado</title>
+  <title>Mini Jogo RPG - Com Mapa</title>
   <style>
     * {
       box-sizing: border-box;
@@ -42,14 +42,19 @@
       width: 100%;
       max-width: 500px;
       height: 320px;
-      background-color: #2b2b36;
+      /* Imagem do mapa de fundo */
+      background-image: url('./assets/mapa.png');
+      background-size: cover;
+      background-position: center;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
       border: 4px solid #4e4e63;
       border-radius: 8px;
       overflow: hidden;
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
     }
 
-    /* Container com o tamanho padrão de 1 frame do LPC (64x64px) */
+    /* Container do Personagem */
     #player {
       position: absolute;
       width: 64px;
@@ -98,7 +103,7 @@
 <body>
 
   <h1>Mini Jogo RPG</h1>
-  <p>Toque nos botões para mover o personagem</p>
+  <p>Explore o mapa com o personagem</p>
 
   <div id="game-container">
     <div id="player"></div>
@@ -115,22 +120,20 @@
     const player = document.getElementById('player');
     const container = document.getElementById('game-container');
 
-    const frameSize = 64; // Tamanho padrão de cada quadro (64x64px)
+    const frameSize = 64;
     const speed = 3;
 
     let posX = (container.clientWidth - frameSize) / 2;
     let posY = (container.clientHeight - frameSize) / 2;
 
-    // Configuração das linhas no Spritesheet do LPC
-    let currentFrame = 0;       // Quadro atual (0 a 8)
-    let animationRow = 10;      // Começa virado para frente (Linha 10)
+    let currentFrame = 0;
+    let animationRow = 10;
     let frameTimer = 0;
-    const totalWalkFrames = 9;  // 9 passos na animação
-    const animationSpeed = 5;   // Velocidade da troca de quadros
+    const totalWalkFrames = 9;
+    const animationSpeed = 5;
 
     const keys = { Up: false, Down: false, Left: false, Right: false };
 
-    // --- Suporte para Celular (Touch) ---
     function bindButton(id, keyName) {
       const btn = document.getElementById(id);
       
@@ -156,7 +159,6 @@
     bindButton('btn-left', 'Left');
     bindButton('btn-right', 'Right');
 
-    // --- Suporte para Teclado (PC) ---
     window.addEventListener('keydown', (e) => {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
       if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.Up = true;
@@ -172,47 +174,41 @@
       if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = false;
     });
 
-    // --- Loop do Jogo ---
     function gameLoop() {
       let isMoving = false;
 
-      // Define a linha da imagem de acordo com a direção acionada
       if (keys.Up) {
         posY -= speed;
-        animationRow = 8;  // Linha 8: Costas (Cima)
+        animationRow = 8;
         isMoving = true;
       } else if (keys.Down) {
         posY += speed;
-        animationRow = 10; // Linha 10: Frente (Baixo)
+        animationRow = 10;
         isMoving = true;
       } else if (keys.Left) {
         posX -= speed;
-        animationRow = 9;  // Linha 9: Esquerda
+        animationRow = 9;
         isMoving = true;
       } else if (keys.Right) {
         posX += speed;
-        animationRow = 11; // Linha 11: Direita
+        animationRow = 11;
         isMoving = true;
       }
 
-      // Limites da tela
       posX = Math.max(0, Math.min(container.clientWidth - frameSize, posX));
       posY = Math.max(0, Math.min(container.clientHeight - frameSize, posY));
 
-      // Lógica de alternância das pernas e braços
       if (isMoving) {
         frameTimer++;
         if (frameTimer >= animationSpeed) {
           frameTimer = 0;
-          // Alterna do quadro 1 ao 8 (o quadro 0 é parado)
           currentFrame = (currentFrame % (totalWalkFrames - 1)) + 1;
         }
       } else {
-        currentFrame = 0; // Posição neutra (em pé) ao parar
+        currentFrame = 0;
         frameTimer = 0;
       }
 
-      // Atualiza a posição na tela e desloca a imagem de fundo
       player.style.left = posX + 'px';
       player.style.top = posY + 'px';
 
