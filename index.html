@@ -46,14 +46,14 @@
     #player {
       position: absolute;
       width: 64px;
-      height: 64px;
-      background-image: url('assets/Spr_E_Noland.png'); /* Caminho atualizado */
+      height: 80px;
+      /* Usa a tag <img> diretamente ou ajusta o background */
+      background-image: url('./assets/Spr_E_Noland.png');
       background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
-      transition: transform 0.1s ease;
     }
 
     .controls-hint {
@@ -92,7 +92,7 @@
     const container = document.getElementById('game-container');
 
     const playerWidth = 64;
-    const playerHeight = 64;
+    const playerHeight = 80;
     const speed = 5;
 
     let posX = (container.clientWidth - playerWidth) / 2;
