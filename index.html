@@ -437,7 +437,7 @@ var BALANCE={
   tile:32, mapW:49, mapH:49,
   areaSize:7, gridCols:7, gridRows:7,
   areaInicial:24,
-  saveKey:'fazendinha_v23',
+  saveKey:'fazendinha_v24',
   playerSpeed:140, playerAccel:12, playerW:18, playerH:20,
   camLerp:6,
   zoomMin:0.6, zoomMax:2.5, zoomStep:1.2,
@@ -506,24 +506,19 @@ var PAL={
 };
 
 // ─── SPRITE SHEET DO PLAYER (Universal LPC) ───
-// Layout confirmado pelo Gemini:
-//   - 13 colunas × 54 linhas, frame 64x64
-//   - Linhas de walk (0-indexed):
-//       8  = subir (costas)
-//       9  = esquerda
-//       10 = descer (frente)
-//       11 = direita
-//   - 9 frames de walk por direção (colunas 0-8)
+// Layout: 13 colunas x 54 linhas, frame 64x64
+// Linhas walk: 8=cima, 9=esq, 10=baixo, 11=dir
+// 9 frames de walk por direção
 var PLAYER_SPRITE={
   frameW: 64,
   frameH: 64,
-  scale: 0.5,          // 64 * 0.5 = 32 = TILE
-  rowUp: 8,            // linha 8 = subir (0-indexed)
-  rowLeft: 9,          // linha 9 = esquerda
-  rowDown: 10,         // linha 10 = descer/frente
-  rowRight: 11,        // linha 11 = direita
-  totalFrames: 9,      // 9 frames de walk por direção
-  frameDuration: 0.1   // segundos por frame (~10 FPS)
+  scale: 0.85,          // 64 * 0.85 = 54.4
+  rowUp: 8,
+  rowLeft: 9,
+  rowDown: 10,
+  rowRight: 11,
+  totalFrames: 9,
+  frameDuration: 0.14   // segundos por frame (~7 FPS)
 };
 var spriteSheetImg=null;
 var spriteSheetReady=false;
@@ -3424,7 +3419,6 @@ function update(dt){
   if(p.acd>0)p.acd-=dt;
   updateFloats(dt);
   updateNevoa(scaledDt);
-  // Animação do player
   if(p.walking){
     playerAnimTimer+=dt;
     if(playerAnimTimer>=PLAYER_SPRITE.frameDuration){
@@ -3785,15 +3779,14 @@ function getPlayerSpriteRow(){
   return PLAYER_SPRITE.rowDown;
 }
 function drawPlayerSpriteSheet(sx,sy){
-  var col=playerAnimFrame; // 0..8
+  var col=playerAnimFrame;
   var row=getPlayerSpriteRow();
   var fw=PLAYER_SPRITE.frameW;
   var fh=PLAYER_SPRITE.frameH;
-  var dw=fw*PLAYER_SPRITE.scale; // 32
-  var dh=fh*PLAYER_SPRITE.scale; // 32
-  // Centraliza o sprite horizontalmente e alinha o pé com o centro do player
+  var dw=fw*PLAYER_SPRITE.scale;
+  var dh=fh*PLAYER_SPRITE.scale;
   var dx=sx-dw/2;
-  var dy=sy-dh/2; // centro do sprite = centro do player (tile 32x32 casa com 32x32 escalado)
+  var dy=sy-dh/2-4;
   try{
     ctx.imageSmoothingEnabled=false;
     ctx.drawImage(
