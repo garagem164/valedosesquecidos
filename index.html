@@ -2,13 +2,14 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Mini Jogo - Movimentação</title>
   <style>
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      touch-action: manipulation;
     }
 
     body {
@@ -20,22 +21,27 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
+      user-select: none;
+      -webkit-user-select: none;
+      padding: 10px;
     }
 
     h1 {
-      margin-bottom: 10px;
-      font-size: 24px;
+      margin-bottom: 5px;
+      font-size: 20px;
     }
 
     p {
-      margin-bottom: 15px;
+      margin-bottom: 10px;
       color: #aaa;
+      font-size: 14px;
     }
 
     #game-container {
       position: relative;
-      width: 600px;
-      height: 400px;
+      width: 100%;
+      max-width: 500px;
+      height: 320px;
       background-color: #2b2b36;
       border: 4px solid #4e4e63;
       border-radius: 8px;
@@ -47,44 +53,66 @@
       position: absolute;
       width: 64px;
       height: 80px;
-      /* Usa a tag <img> diretamente ou ajusta o background */
       background-image: url('./assets/Spr_E_Noland.png');
       background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
+      will-change: left, top;
     }
 
-    .controls-hint {
+    /* Controle Virtual Touch para Celular */
+    .touch-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      grid-template-rows: repeat(3, 60px);
+      gap: 5px;
       margin-top: 15px;
-      display: flex;
-      gap: 10px;
+      justify-content: center;
     }
 
-    .key {
-      background-color: #333;
-      border: 1px solid #555;
-      padding: 5px 10px;
-      border-radius: 4px;
-      font-size: 14px;
+    .btn-touch {
+      background-color: #3b3b4f;
+      color: #fff;
+      border: 2px solid #5d5d7a;
+      border-radius: 12px;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 0 #222230;
     }
+
+    .btn-touch:active {
+      background-color: #5d5d7a;
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #222230;
+    }
+
+    .btn-up { grid-column: 2; grid-row: 1; }
+    .btn-left { grid-column: 1; grid-row: 2; }
+    .btn-down { grid-column: 2; grid-row: 2; }
+    .btn-right { grid-column: 3; grid-row: 2; }
   </style>
 </head>
 <body>
 
-  <h1>Mini Jogo de Movimentação</h1>
-  <p>Use as setas do teclado ou as teclas WASD para andar</p>
+  <h1>Mini Jogo Mobile</h1>
+  <p>Toque nos botões para mover o personagem</p>
 
   <div id="game-container">
     <div id="player"></div>
   </div>
 
-  <div class="controls-hint">
-    <span class="key">W / ⬆</span>
-    <span class="key">A / ⬅</span>
-    <span class="key">S / ⬇</span>
-    <span class="key">D / ➡</span>
+  <!-- Botoes de controle touch -->
+  <div class="touch-controls">
+    <button class="btn-touch btn-up" id="btn-up">⬆</button>
+    <button class="btn-touch btn-left" id="btn-left">⬅</button>
+    <button class="btn-touch btn-down" id="btn-down">⬇</button>
+    <button class="btn-touch btn-right" id="btn-right">➡</button>
   </div>
 
   <script>
@@ -93,34 +121,74 @@
 
     const playerWidth = 64;
     const playerHeight = 80;
-    const speed = 5;
+    const speed = 4;
 
     let posX = (container.clientWidth - playerWidth) / 2;
     let posY = (container.clientHeight - playerHeight) / 2;
 
+    player.style.left = posX + 'px';
+    player.style.top = posY + 'px';
+
     const keys = {
-      ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
-      w: false, s: false, a: false, d: false,
-      W: false, S: false, A: false, D: false
+      Up: false,
+      Down: false,
+      Left: false,
+      Right: false
     };
 
+    // --- Suporte a Teclado (PC) ---
     window.addEventListener('keydown', (e) => {
-      if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
+      }
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.Up = true;
+      if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.Down = true;
+      if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.Left = true;
+      if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = true;
     });
 
     window.addEventListener('keyup', (e) => {
-      if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.Up = false;
+      if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.Down = false;
+      if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.Left = false;
+      if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = false;
     });
 
-    function gameLoop() {
-      if (keys.ArrowUp || keys.w || keys.W) posY -= speed;
-      if (keys.ArrowDown || keys.s || keys.S) posY += speed;
+    // --- Suporte a Toque na Tela (Celular) ---
+    function setupTouchButton(id, dir) {
+      const btn = document.getElementById(id);
 
-      if (keys.ArrowLeft || keys.a || keys.A) {
+      const start = (e) => {
+        e.preventDefault();
+        keys[dir] = true;
+      };
+
+      const end = (e) => {
+        e.preventDefault();
+        keys[dir] = false;
+      };
+
+      btn.addEventListener('touchstart', start, { passive: false });
+      btn.addEventListener('touchend', end, { passive: false });
+      btn.addEventListener('mousedown', start);
+      btn.addEventListener('mouseup', end);
+    }
+
+    setupTouchButton('btn-up', 'Up');
+    setupTouchButton('btn-down', 'Down');
+    setupTouchButton('btn-left', 'Left');
+    setupTouchButton('btn-right', 'Right');
+
+    // --- Loop do Jogo ---
+    function gameLoop() {
+      if (keys.Up) posY -= speed;
+      if (keys.Down) posY += speed;
+
+      if (keys.Left) {
         posX -= speed;
         player.style.transform = 'scaleX(-1)';
       }
-      if (keys.ArrowRight || keys.d || keys.D) {
+      if (keys.Right) {
         posX += speed;
         player.style.transform = 'scaleX(1)';
       }
