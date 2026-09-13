@@ -42,10 +42,9 @@
       width: 100%;
       max-width: 500px;
       height: 320px;
-      /* Imagem do mapa de fundo */
-      background-image: url('./assets/mapa.png');
-      background-size: cover;
-      background-position: center;
+      /* Imagem de gramado de teste carregada via link externo */
+      background-image: url('https://raw.githubusercontent.com/Seldaek/game-assets/master/tilesets/grass.png');
+      background-repeat: repeat;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
       border: 4px solid #4e4e63;
@@ -59,7 +58,7 @@
       position: absolute;
       width: 64px;
       height: 64px;
-      background-image: url('./assets/character-spritesheet.png');
+      background-image: url('./assets/character-spritesheet.png?v=3');
       background-repeat: no-repeat;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
@@ -134,6 +133,7 @@
 
     const keys = { Up: false, Down: false, Left: false, Right: false };
 
+    // --- Suporte para Celular (Touch) ---
     function bindButton(id, keyName) {
       const btn = document.getElementById(id);
       
@@ -159,6 +159,7 @@
     bindButton('btn-left', 'Left');
     bindButton('btn-right', 'Right');
 
+    // --- Suporte para Teclado (PC) ---
     window.addEventListener('keydown', (e) => {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
       if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.Up = true;
@@ -174,6 +175,7 @@
       if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = false;
     });
 
+    // --- Loop Principal ---
     function gameLoop() {
       let isMoving = false;
 
