@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jogo Teste - Map Render</title>
+  <title>Jogo Teste - Mapa e Personagem</title>
   <style>
     body {
       margin: 0;
@@ -17,7 +17,7 @@
     }
     canvas {
       border: 4px solid #fff;
-      image-rendering: pixelated; /* Evita que o pixel art fique embaçado */
+      image-rendering: pixelated;
       box-shadow: 0 10px 20px rgba(0,0,0,0.5);
     }
   </style>
@@ -31,15 +31,29 @@
     const ctx = canvas.getContext('2d');
 
     const TILE_SIZE = 16;
-    const SCALE = 2; // Amplia os pixels para facilitar a visualização
+    const SCALE = 2;
     const SCALED_SIZE = TILE_SIZE * SCALE;
 
-    // Carrega a imagem do tileset a partir da sua pasta assets
+    // 1. Carregar as imagens
     const tileset = new Image();
     tileset.src = 'assets/spr_tileset_sunnysideworld_16px.png';
 
-    // Matriz de exemplo para o mapa (2D Array)
-    // Os números representam a coluna do bloco no tileset original
+    // 2. Dados do Personagem
+    const player = {
+      x: 144, // Posição inicial X na tela
+      y: 144, // Posição inicial Y na tela
+      speed: 3,
+      size: SCALED_SIZE,
+      color: '#ff4757' // Quadrado vermelho representando o personagem por enquanto
+    };
+
+    // Teclas pressionadas
+    const keys = {};
+
+    window.addEventListener('keydown', (e) => keys[e.key] = true);
+    window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+    // Matriz do Mapa
     const mapa = [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
@@ -53,32 +67,52 @@
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ];
 
-    // Função de renderização executada assim que a imagem carrega
-    tileset.onload = () => {
-      renderizarMapa();
-    };
+    // Atualizar posição do jogador
+    function atualizar() {
+      if (keys['ArrowUp'] || keys['w']) player.y -= player.speed;
+      if (keys['ArrowDown'] || keys['s']) player.y += player.speed;
+      if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
+      if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
+    }
 
-    function renderizarMapa() {
-      // Limpa a tela
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+    // Desenhar o mapa
+    function desenharMapa() {
       for (let linha = 0; linha < mapa.length; linha++) {
         for (let coluna = 0; coluna < mapa[linha].length; coluna++) {
           const tileId = mapa[linha][coluna];
-
-          // Calcula a posição do tile dentro do arquivo de imagem
           const sourceX = (tileId % (tileset.width / TILE_SIZE)) * TILE_SIZE;
           const sourceY = Math.floor(tileId / (tileset.width / TILE_SIZE)) * TILE_SIZE;
 
-          // Desenha o bloco recortado no canvas
           ctx.drawImage(
             tileset,
-            sourceX, sourceY, TILE_SIZE, TILE_SIZE, // Origem (Recorte na Imagem)
-            coluna * SCALED_SIZE, linha * SCALED_SIZE, SCALED_SIZE, SCALED_SIZE // Destino (Tela)
+            sourceX, sourceY, TILE_SIZE, TILE_SIZE,
+            coluna * SCALED_SIZE, linha * SCALED_SIZE, SCALED_SIZE, SCALED_SIZE
           );
         }
       }
     }
+
+    // Desenhar o jogador
+    function desenharJogador() {
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+    }
+
+    // Game Loop continuo
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      desenharMapa();
+      atualizar();
+      desenharJogador();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Iniciar o jogo após carregar a imagem
+    tileset.onload = () => {
+      gameLoop();
+    };
   </script>
 </body>
 </html>
